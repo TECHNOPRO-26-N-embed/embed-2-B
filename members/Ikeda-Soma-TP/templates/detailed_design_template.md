@@ -20,8 +20,8 @@
 | 項目 | basic_design.md から転記 |
 |:--|:--|
 | 作品タイトル | 手をかざすとつくデスク扇風機 |
-| 状態の種類（1-2 状態遷移から） | 4種類（待機中 / 送風中(弱) / 送風中(強) / 停止遷移中） |
-| 実装する関数の数（2-2 関数一覧から） | 11個 |
+| 状態の種類（1-2 状態遷移から） | 3種類（待機中 / 送風中 / 停止遷移中） |
+| 実装する関数の数（2-2 関数一覧から） | 10個 |
 | グローバル変数の合計バイト数（2-1 SRAM確認から） | 21B |
 
 ---
@@ -35,12 +35,12 @@
 【ピン定義】（basic_design.md 3-1 から転記）
   PIN_PIR        : const uint8_t = 2   // HC-SR501 OUT
   PIN_BUTTON     : const uint8_t = 3   // タクトスイッチ（INPUT_PULLUP）
-  PIN_LED_STATUS : const uint8_t = 9   // 状態表示LED
+  PIN_LED_STATUS : const uint8_t = 6   // 状態表示LED
   PIN_FAN_PWM    : const uint8_t = 5   // モーターPWM
   PIN_FAN_EN     : const uint8_t = 4   // モーター有効化
 
 【状態管理】（basic_design.md 1-2 の状態名から転記）
-  currentState       : uint8_t = 0   // 0:待機 1:送風弱 2:送風強 3:停止遷移
+  currentState       : uint8_t = 0   // 0:待機 1:送風 2:停止遷移
   fanEnabled         : bool = false
   pirDetected        : bool = false
   buttonStableState  : bool = false
@@ -50,12 +50,11 @@
   lastButtonMillis   : unsigned long = 0
   lastLedMillis      : unsigned long = 0
   lastDetectedMillis : unsigned long = 0
-  pressStartMillis   : unsigned long = 0
   fanMaskUntilMillis : unsigned long = 0
 
 【センサー・入力値】（basic_design.md 2-1 から転記）
   rawButtonValue     : bool = true    // INPUT_PULLUPなので未押下=true
-  fanPwmDuty         : uint8_t = 120  // 弱120 / 強220
+  fanPwmDuty         : uint8_t = 120  // 送風時固定
   sensorErrorCount   : uint8_t = 0
 
 【その他のフラグ・カウンター】
@@ -63,7 +62,6 @@
   SENSOR_INTERVAL_MS : const unsigned long = 100
   LED_BLINK_MS       : const unsigned long = 500
   AUTO_STOP_MS       : const unsigned long = 10000
-  LONG_PRESS_MS      : const unsigned long = 1000
   NOISE_MASK_MS      : const unsigned long = 200
 ```
 
@@ -92,7 +90,7 @@
 4. 状態変数とタイマーを初期化する。
    - `currentState=0`, `fanEnabled=false`, `fanPwmDuty=120`
    - 各 `last*Millis` に `millis()` を代入
-5. 任意機能としてLCDを使う場合は初期化し、`FAN READY` を表示する。
+5. LCDは今回未使用とし、未実装の任意機能として扱う。
 ```
 
 ---
@@ -113,15 +111,11 @@
 ＜currentState が 0（待機中）のとき＞
 - 手かざし検知または短押しがあれば送風開始処理を呼ぶ
 
-＜currentState が 1（送風中(弱)）のとき＞
+＜currentState が 1（送風中）のとき＞
 - 100msごとに未検知時間を判定し、10秒超で停止遷移
-- 長押し成立で送風中(強)へ遷移
+- 短押しで停止遷移
 
-＜currentState が 2（送風中(強)）のとき＞
-- 100msごとに未検知時間を判定し、10秒超で停止遷移
-- 短押しで停止遷移、長押しで送風中(弱)へ遷移
-
-＜currentState が 3（停止遷移中）のとき＞
+＜currentState が 2（停止遷移中）のとき＞
 - 出力を停止し、フラグを初期化して待機中へ戻す
 ```
 
@@ -181,8 +175,7 @@
 【処理の流れ】
 1. `currentState` ごとに遷移条件を判定する。
 2. 待機中: 手かざし検知または短押しで送風中(弱)へ。
-3. 送風中(弱/強): 未検知10秒で停止遷移へ。
-4. 送風中(弱/強): 長押しで弱/強を切替、短押しで停止遷移へ。
+3. 送風中: 未検知10秒または短押しで停止遷移へ。
 5. 停止遷移中: 停止処理後に待機中へ戻す。
 
 【エラー・異常ケース】
@@ -203,11 +196,90 @@
 【処理の流れ】
 1. state=0: モーター停止、LED消灯。
 2. state=1: モーターPWM=120、LEDを500ms周期で点滅。
-3. state=2: モーターPWM=220、LED点灯。
-4. state=3: モーター停止、LED消灯。
+3. state=2: モーター停止、LED消灯。
 
 【エラー・異常ケース】
 - stateが範囲外: 出力をすべて停止して安全側に倒す。
+```
+
+---
+
+### `isHandDetected()` — 検知条件成立を判定する
+
+**basic_design.md 2-2 との対応：** 検知条件成立を判定する
+
+**引数：** `pirDetected`（bool）: 現在のPIR検知状態
+
+**戻り値：** `bool`
+
+```
+【処理の流れ】
+1. `pirDetected == false` なら false を返す。
+2. `now < fanMaskUntilMillis` ならノイズマスク中として false を返す。
+3. それ以外は true を返す。
+
+【エラー・異常ケース】
+- 検知信号が不安定な場合: センサー異常カウントが閾値超過なら false を返す。
+```
+
+---
+
+### `startFanWithinOneSecond()` — 検知後1秒以内に送風を開始する
+
+**basic_design.md 2-2 との対応：** 検知後に1秒以内で送風開始処理を行う
+
+**引数：** `trigger`（bool）: 検知トリガ
+
+**戻り値：** `void`
+
+```
+【処理の流れ】
+1. triggerがfalseなら何もしない。
+2. 検知時刻を記録し、同ループ内でモーター有効化を行う。
+3. state=1（送風弱）へ遷移し、`fanMaskUntilMillis = now + NOISE_MASK_MS` を設定する。
+4. 応答時間要件（1秒以内）を満たすよう delay は使わない。
+
+【エラー・異常ケース】
+- 連続起動要求時: 既に送風中なら再初期化せずそのまま維持する。
+```
+
+---
+
+### `toggleFanByButton()` — ボタン短押しで送風ON/OFFを切り替える
+
+**basic_design.md 2-2 との対応：** 短押しで送風状態を反転する
+
+**引数：** `buttonPressed`（bool）: 短押しイベント
+
+**戻り値：** `void`
+
+```
+【処理の流れ】
+1. `buttonPressed == false` なら何もしない。
+2. 待機中なら送風弱へ遷移する。
+3. 送風中なら停止遷移へ遷移する。
+
+【エラー・異常ケース】
+- チャタリング入力: `readButtonDebounced()` で確定した入力のみ受け付ける。
+```
+
+---
+
+### `calculateFanDuration()` — 検知状況に応じて送風継続時間を返す
+
+**basic_design.md 2-2 との対応：** 検知条件に応じた送風継続時間を決定する
+
+**引数：** `pirDetected`（bool）
+
+**戻り値：** `uint16_t`（ms）
+
+```
+【処理の流れ】
+1. `pirDetected == true` なら 10000ms を返す。
+2. `pirDetected == false` なら 3000ms を返す。
+
+【エラー・異常ケース】
+- 不正値時は安全側で3000msを返す。
 ```
 
 ---
@@ -253,7 +325,6 @@
   - ボタンデバウンス: 20ms周期
   - LED点滅（送風弱）: 500ms周期
   - 無検知自動停止判定: 100ms周期
-  - 長押し判定: 1000ms閾値
 ```
 
 ---
@@ -291,6 +362,7 @@
 | 2 | 状態遷移が正しく起きているか | `loop()` | `Serial.println(currentState);` |
 | 3 | チャタリング処理が効いているか | `readButtonDebounced()` | `Serial.println("btn confirmed");` |
 | 4 | 自動停止判定が正しいか | `updateStateMachine()` | `Serial.println(now - lastDetectedMillis);` |
+| 5 | 任意機能が未実装で主機能に影響しないか | `loop()` | `Serial.println("no lcd mode");` |
 
 ---
 
@@ -353,12 +425,12 @@
 
 **AIの回答（要約）：**
 - 入力系はノイズマスク中に判定しないことをテストに含めるべき。
-- 出力系は弱/強のPWM値を分けて確認すべき。
+- 出力系は送風ON時と停止時の状態を分けて確認すべき。
 - タイミング系は10秒自動停止の精度確認を追加するとよい。
 
 **対応した内容：**
 - 5-1に停止遷移条件の確認テストを追加した。
-- 5-2で弱/強の出力確認を分離した。
+- 5-2で送風ON時と停止時の出力確認を分離した。
 - 5-3に自動停止タイマー精度テストを追加した。
 
 ---
