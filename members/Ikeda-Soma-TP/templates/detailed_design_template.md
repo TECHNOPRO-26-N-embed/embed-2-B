@@ -1,6 +1,6 @@
 # 詳細設計書 — 組込み開発実習
 
-<!-- 作成者: あなたの名前 / 日付: YYYY-MM-DD / グループ: 〇-〇 -->
+<!-- 作成者: 池田 想真 / 日付: 2026-05-25 / グループ: B-2 -->
 
 > **このドキュメントの目的**
 > 基本設計書（basic_design.md）で「**どのような構造で作るか**」を決めました。
@@ -19,10 +19,10 @@
 
 | 項目 | basic_design.md から転記 |
 |:--|:--|
-| 作品タイトル | |
-| 状態の種類（1-2 状態遷移から） | |
-| 実装する関数の数（2-2 関数一覧から） | 　個 |
-| グローバル変数の合計バイト数（2-1 SRAM確認から） | 　B |
+| 作品タイトル | 手をかざすとつくデスク扇風機 |
+| 状態の種類（1-2 状態遷移から） | 4種類（待機中 / 送風中(弱) / 送風中(強) / 停止遷移中） |
+| 実装する関数の数（2-2 関数一覧から） | 11個 |
+| グローバル変数の合計バイト数（2-1 SRAM確認から） | 21B |
 
 ---
 
@@ -33,24 +33,38 @@
 
 ```
 【ピン定義】（basic_design.md 3-1 から転記）
-  PIN_BUTTON    = 2    // タクトスイッチ（INPUT_PULLUP）
-  PIN_LED_RED   = 9    // 赤LED
-  PIN_LED_GREEN = 10   // 緑LED
-  PIN_BUZZER    = 11   // パッシブブザー
+  PIN_PIR        : const uint8_t = 2   // HC-SR501 OUT
+  PIN_BUTTON     : const uint8_t = 3   // タクトスイッチ（INPUT_PULLUP）
+  PIN_LED_STATUS : const uint8_t = 9   // 状態表示LED
+  PIN_FAN_PWM    : const uint8_t = 5   // モーターPWM
+  PIN_FAN_EN     : const uint8_t = 4   // モーター有効化
 
 【状態管理】（basic_design.md 1-2 の状態名から転記）
-  currentState  : int = 0   // 0:待機 1:動作中 2:完了 3:エラー
+  currentState       : uint8_t = 0   // 0:待機 1:送風弱 2:送風強 3:停止遷移
+  fanEnabled         : bool = false
+  pirDetected        : bool = false
+  buttonStableState  : bool = false
 
 【タイマー（millis()用）】（basic_design.md 2-3 から転記）
-  lastMillis_LED    : unsigned long = 0
-  lastMillis_Sensor : unsigned long = 0
+  lastSensorMillis   : unsigned long = 0
+  lastButtonMillis   : unsigned long = 0
+  lastLedMillis      : unsigned long = 0
+  lastDetectedMillis : unsigned long = 0
+  pressStartMillis   : unsigned long = 0
+  fanMaskUntilMillis : unsigned long = 0
 
 【センサー・入力値】（basic_design.md 2-1 から転記）
-  sensorValue   : int  = 0
-  buttonState   : bool = false
+  rawButtonValue     : bool = true    // INPUT_PULLUPなので未押下=true
+  fanPwmDuty         : uint8_t = 120  // 弱120 / 強220
+  sensorErrorCount   : uint8_t = 0
 
 【その他のフラグ・カウンター】
-  （自分のものを追加）
+  DEBOUNCE_DELAY_MS  : const unsigned long = 20
+  SENSOR_INTERVAL_MS : const unsigned long = 100
+  LED_BLINK_MS       : const unsigned long = 500
+  AUTO_STOP_MS       : const unsigned long = 10000
+  LONG_PRESS_MS      : const unsigned long = 1000
+  NOISE_MASK_MS      : const unsigned long = 200
 ```
 
 ---
@@ -66,26 +80,19 @@
 
 ```
 【処理の流れ】
-1. ピンモードを設定する
-   - PIN_BUTTON  → INPUT_PULLUP
-   - PIN_LED_*   → OUTPUT
-   - PIN_BUZZER  → OUTPUT
-
-2. ライブラリの初期化（使うものだけ）
-   - 例: lcd.begin(16, 2)
-   - 例: servo.attach(PIN_SERVO)
-
-3. Serial.begin(9600)（デバッグ用）
-
-4. 起動確認（任意）: 緑LEDを1秒点灯して消灯
-```
-
-**↓ 自分の setup() を設計してください**
-```
-【処理の流れ】
-1.
-2.
-3.
+1. `Serial.begin(9600)` を実行し、起動ログを1回だけ出力する。
+2. ピンモードを設定する。
+   - `PIN_PIR` → INPUT
+   - `PIN_BUTTON` → INPUT_PULLUP
+   - `PIN_LED_STATUS` / `PIN_FAN_PWM` / `PIN_FAN_EN` → OUTPUT
+3. 初期出力を安全側に設定する。
+   - `digitalWrite(PIN_LED_STATUS, LOW)`
+   - `digitalWrite(PIN_FAN_EN, LOW)`
+   - `analogWrite(PIN_FAN_PWM, 0)`
+4. 状態変数とタイマーを初期化する。
+   - `currentState=0`, `fanEnabled=false`, `fanPwmDuty=120`
+   - 各 `last*Millis` に `millis()` を代入
+5. 任意機能としてLCDを使う場合は初期化し、`FAN READY` を表示する。
 ```
 
 ---
@@ -98,66 +105,109 @@
 【処理の流れ】
 
 ＜毎ループ実行すること＞
-  - 入力を読む（readButton(), readSensor() などを呼ぶ）
-  - 現在時刻を取得: now = millis()
+- `now = millis()` を取得する
+- `readPirSensor()` と `readButtonDebounced()` を実行する
+- `updateStateMachine()` で状態遷移を更新する
+- `updateOutputs(currentState)` でLED/モーターを制御する
 
 ＜currentState が 0（待機中）のとき＞
-  - センサー値を監視する
-  - 検知条件を満たしたら → currentState = 1
+- 手かざし検知または短押しがあれば送風開始処理を呼ぶ
 
-＜currentState が 1（動作中）のとき＞
-  - メイン処理を行う
-  - 終了条件を満たしたら → currentState = 2
+＜currentState が 1（送風中(弱)）のとき＞
+- 100msごとに未検知時間を判定し、10秒超で停止遷移
+- 長押し成立で送風中(強)へ遷移
 
-＜currentState が 2（完了）のとき＞
-  - 完了表示をする
-  - リセットボタンが押されたら → currentState = 0
+＜currentState が 2（送風中(強)）のとき＞
+- 100msごとに未検知時間を判定し、10秒超で停止遷移
+- 短押しで停止遷移、長押しで送風中(弱)へ遷移
 
-＜currentState が 3（エラー）のとき＞
-  - エラー表示をする / リセットを待つ
-```
-
-**↓ 自分の loop() を設計してください**
-```
-【処理の流れ】
-
-＜毎ループ実行すること＞
-
-
-＜currentState が 　　 のとき＞
-
-
-＜currentState が 　　 のとき＞
-
-
-＜currentState が 　　 のとき＞
-
+＜currentState が 3（停止遷移中）のとき＞
+- 出力を停止し、フラグを初期化して待機中へ戻す
 ```
 
 ---
 
-### （関数ごとに以下のブロックをコピーして追加してください）
+### `readButtonDebounced()` — チャタリング除去済みの押下イベントを返す
 
-> ※ 基本設計書 2-2 の関数一覧に記載した関数を1つずつ設計します。
+**basic_design.md 2-2 との対応：** チャタリング除去済み押下イベントを返す
 
----
+**引数：** なし
 
-### `関数名()` — （役割を1行で書く）
-
-**basic_design.md 2-2 との対応：** （基本設計書の関数一覧の説明を転記）
-
-**引数：** `引数名`（型）: 何の値か
-
-**戻り値：** 型（なしの場合は void）
+**戻り値：** `bool`（押下イベントありならtrue）
 
 ```
 【処理の流れ】
-1.
-2.
-3.
+1. `raw = digitalRead(PIN_BUTTON)` を読む。
+2. `now - lastButtonMillis < DEBOUNCE_DELAY_MS` なら false を返す。
+3. `raw == LOW` かつ `buttonStableState == false` なら true を返す。
+4. `buttonStableState` と `lastButtonMillis` を更新する。
 
 【エラー・異常ケース】
-- 異常な値が来た場合:
+- 入力が揺れている場合: デバウンス時間内は無効化する。
+```
+
+---
+
+### `readPirSensor()` — 人感センサー状態を周期更新する
+
+**basic_design.md 2-2 との対応：** HC-SR501の検知信号を取得する
+
+**引数：** なし
+
+**戻り値：** `bool`（検知中ならtrue）
+
+```
+【処理の流れ】
+1. `now - lastSensorMillis >= SENSOR_INTERVAL_MS` のときだけ読み取る。
+2. `pirDetected = digitalRead(PIN_PIR)` を反映する。
+3. `pirDetected == true` なら `lastDetectedMillis = now` を更新する。
+4. `lastSensorMillis = now` に更新し、`pirDetected` を返す。
+
+【エラー・異常ケース】
+- 高速反転が続く場合: `sensorErrorCount` を増やし、3回連続で無効扱いにする。
+```
+
+---
+
+### `updateStateMachine()` — 状態遷移を管理する
+
+**basic_design.md 2-2 との対応：** 状態遷移を非同期に管理する
+
+**引数：** なし
+
+**戻り値：** `void`
+
+```
+【処理の流れ】
+1. `currentState` ごとに遷移条件を判定する。
+2. 待機中: 手かざし検知または短押しで送風中(弱)へ。
+3. 送風中(弱/強): 未検知10秒で停止遷移へ。
+4. 送風中(弱/強): 長押しで弱/強を切替、短押しで停止遷移へ。
+5. 停止遷移中: 停止処理後に待機中へ戻す。
+
+【エラー・異常ケース】
+- `currentState` が範囲外: 安全のため `currentState=0` に戻す。
+```
+
+---
+
+### `updateOutputs()` — 状態に応じてLED/モーターを制御する
+
+**basic_design.md 2-2 との対応：** 状態に応じてモーターとLEDを更新する
+
+**引数：** `state`（uint8_t）: 現在状態
+
+**戻り値：** `void`
+
+```
+【処理の流れ】
+1. state=0: モーター停止、LED消灯。
+2. state=1: モーターPWM=120、LEDを500ms周期で点滅。
+3. state=2: モーターPWM=220、LED点灯。
+4. state=3: モーター停止、LED消灯。
+
+【エラー・異常ケース】
+- stateが範囲外: 出力をすべて停止して安全側に倒す。
 ```
 
 ---
@@ -170,18 +220,18 @@
 
 ```
 【考え方】
-  ボタンが押されたとき、50ms 以内の連続入力は「同じ1回の押下」として無視する。
+  ボタンが押されたとき、20ms以内の連続入力は「同じ1回の押下」として無視する。
 
 【処理の流れ】
   1. ボタンのデジタル値を読む（digitalRead）
-  2. 前回確定した時刻（lastDebounceTime）からの経過時間を計算する
-  3. 経過時間 < DEBOUNCE_DELAY（例: 50ms）→ 無視する
+  2. 前回確定した時刻（lastButtonMillis）からの経過時間を計算する
+  3. 経過時間 < DEBOUNCE_DELAY（20ms）→ 無視する
   4. 経過時間 ≥ DEBOUNCE_DELAY → ボタンの状態として確定する
-  5. lastDebounceTime を更新する
+  5. lastButtonMillis を更新する
 
 【必要な変数（Section 1 に追加済みか確認）】
-  lastDebounceTime : unsigned long   // 前回確定した時刻
-  DEBOUNCE_DELAY   : const int = 50  // チャタリング判定時間（ms）
+  lastButtonMillis : unsigned long            // 前回確定した時刻
+  DEBOUNCE_DELAY   : const unsigned long = 20 // チャタリング判定時間（ms）
 ```
 
 ---
@@ -194,12 +244,16 @@
 
 【処理の流れ（例: LED点滅）】
   1. now = millis()
-  2. now - lastMillis_LED >= LED_INTERVAL かどうか確認
-  3. 条件を満たした場合: LEDのON/OFFを切り替え、lastMillis_LED = now
+  2. now - lastLedMillis >= LED_BLINK_MS かどうか確認
+  3. 条件を満たした場合: LEDのON/OFFを切り替え、lastLedMillis = now
   4. 条件を満たさない場合: 何もしない（次のループで再チェック）
 
 【自分のシステムで millis() を使う処理】
-  （basic_design.md 2-3 のタイミング設計から転記して具体化する）
+  - センサー読み取り: 100ms周期
+  - ボタンデバウンス: 20ms周期
+  - LED点滅（送風弱）: 500ms周期
+  - 無検知自動停止判定: 100ms周期
+  - 長押し判定: 1000ms閾値
 ```
 
 ---
@@ -211,11 +265,15 @@
 
 ```
 【処理の流れ】
-1.
-2.
-3.
+1. モーター起動後200msはセンサー評価をマスクし、誤検知を防ぐ。
+2. 50ms以内の高速ON/OFF反転を異常値としてカウントする。
+3. 異常反転が3回連続したら停止遷移に入り、安全停止する。
 
 【入力値と出力値の関係】
+- 入力: `pirDetected=true` かつ `now >= fanMaskUntilMillis`
+  出力: 送風開始条件として採用
+- 入力: `sensorErrorCount >= 3`
+  出力: モーター停止、待機状態へ復帰
 
 ```
 
@@ -229,10 +287,10 @@
 
 | No | 確認したい内容 | 挿入する関数 | Serial.println の内容例 |
 |:---|:---|:---|:---|
-| 1 | センサー値が正しく取れているか | `readSensor()` | `Serial.println(sensorValue);` |
+| 1 | センサー状態が正しく取れているか | `readPirSensor()` | `Serial.println(pirDetected);` |
 | 2 | 状態遷移が正しく起きているか | `loop()` | `Serial.println(currentState);` |
-| 3 | チャタリング処理が効いているか | `readButton()` | `Serial.println("btn confirmed");` |
-| 4 |  |  |  |
+| 3 | チャタリング処理が効いているか | `readButtonDebounced()` | `Serial.println("btn confirmed");` |
+| 4 | 自動停止判定が正しいか | `updateStateMachine()` | `Serial.println(now - lastDetectedMillis);` |
 
 ---
 
@@ -245,26 +303,27 @@
 
 | No | テスト対象の関数 | 入力・操作 | 期待する結果 | 実際の結果 | 合否 |
 |:---|:---|:---|:---|:---|:---|
-| 1 | readButton() | タクトスイッチを1回押す | true が返る | | [ ] |
-| 2 | readButton() | スイッチを素早く2回押す | 1回分だけ true になる | | [ ] |
-| 3 | readSensor() | センサーを正常範囲で使う | 仕様範囲内の値が返る | | [ ] |
-| 4 | readSensor() | センサーを遮蔽・範囲外に向ける | 誤動作しない | | [ ] |
-| 5 | （自分の関数を追加） | | | | [ ] |
+| 1 | readButtonDebounced() | タクトスイッチを1回押す | true が1回だけ返る | | [ ] |
+| 2 | readButtonDebounced() | スイッチを素早く2回押す | チャタリング分が無視される | | [ ] |
+| 3 | readPirSensor() | センサー前で手をかざす | `pirDetected=true` が返る | | [ ] |
+| 4 | readPirSensor() | センサーを遮蔽・範囲外へ向ける | `pirDetected=false` で誤起動しない | | [ ] |
+| 5 | updateStateMachine() | 無検知で10秒待機 | 停止遷移へ移る | | [ ] |
 
 ### 5-2. 出力系テスト
 
 | No | テスト対象の関数 | 入力・操作 | 期待する結果 | 実際の結果 | 合否 |
 |:---|:---|:---|:---|:---|:---|
-| 1 | updateOutput(0) | state=0（待機中）を渡す | 緑LEDが点滅する | | [ ] |
-| 2 | updateOutput(1) | state=1（動作中）を渡す | 赤LEDが点灯、ブザーが鳴る | | [ ] |
-| 3 | （自分の状態・関数を追加） | | | | [ ] |
+| 1 | updateOutputs(0) | state=0（待機中）を渡す | モーター停止、LED消灯 | | [ ] |
+| 2 | updateOutputs(1) | state=1（送風弱）を渡す | PWM=120、LEDが500ms点滅 | | [ ] |
+| 3 | updateOutputs(2) | state=2（送風強）を渡す | PWM=220、LED点灯 | | [ ] |
 
 ### 5-3. タイミング・並行動作テスト
 
 | No | テスト内容 | テスト手順 | 期待する結果 | 実際の結果 | 合否 |
 |:---|:---|:---|:---|:---|:---|
-| 1 | delay()による処理停止がないか | LED点滅中にボタンを押す | ボタン入力が無視されない | | [ ] |
-| 2 | millis()タイマーの周期精度 | 点滅をストップウォッチで確認 | 設計した周期（例:500ms）通りに点滅 | | [ ] |
+| 1 | delay()による処理停止がないか | LED点滅中にボタンを連続押下 | 入力取りこぼしなくON/OFF切替できる | | [ ] |
+| 2 | millis()タイマーの周期精度 | 点滅をストップウォッチで確認 | 500ms周期で点滅（誤差±10%） | | [ ] |
+| 3 | 自動停止タイマー精度 | 検知後に無入力で放置 | 約10秒で停止遷移へ入る | | [ ] |
 
 ---
 
@@ -277,8 +336,14 @@
 > 「この詳細設計書に書いた関数と処理フローをもとに Arduino でコードを書きます。バグになりやすい箇所・処理の抜け・型の問題はありますか？」
 
 **AIの回答（要約）：**
+- INPUT_PULLUPの押下判定はLOWで統一しないと逆判定バグになりやすい。
+- 状態値が範囲外になったときの安全復帰処理が必要。
+- モーター起動直後のノイズで誤検知する可能性があるためマスク時間が有効。
 
 **対応した内容：**
+- `readButtonDebounced()` の押下条件をLOWで統一した。
+- `updateStateMachine()` / `updateOutputs()` に範囲外stateの安全復帰を追加した。
+- モーター起動後200msのノイズマスク処理を追加した。
 
 ---
 
@@ -287,8 +352,14 @@
 > 「Section 5 の単体テスト仕様書で、各関数の動作が正しく検証できていますか？テストが不足している項目や、境界値テストが必要な箇所を教えてください。」
 
 **AIの回答（要約）：**
+- 入力系はノイズマスク中に判定しないことをテストに含めるべき。
+- 出力系は弱/強のPWM値を分けて確認すべき。
+- タイミング系は10秒自動停止の精度確認を追加するとよい。
 
 **対応した内容：**
+- 5-1に停止遷移条件の確認テストを追加した。
+- 5-2で弱/強の出力確認を分離した。
+- 5-3に自動停止タイマー精度テストを追加した。
 
 ---
 
@@ -298,15 +369,15 @@
 
 | No | 指摘内容 | 指摘者 | 対応 |
 |:---|:---|:---|:---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
+| 1 | 状態遷移図と関数名の対応を明確にした方がよい | 西本 | Section 2に関数ごとの責務を追記 |
+| 2 | 単体テストに10秒停止の精度確認を入れるべき | 小島 | 5-3 No.3として追加 |
+| 3 | ボタン誤検知時の仕様を明記するべき | 鄭 | デバウンス20msを3-1に明記 |
 
 ### 7-2. レビューを受けて変更した点
 
--
--
+- センサー・ボタン・出力関数の責務を個別に追記した。
+- タイミング系テストとノイズ対策仕様を追加した。
 
 ---
 
-*初版: YYYY-MM-DD / AIレビュー: YYYY-MM-DD / グループレビュー後更新: YYYY-MM-DD*
+*初版: 2026-05-25 / AIレビュー: 2026-05-25 / グループレビュー後更新: 2026-05-25*
