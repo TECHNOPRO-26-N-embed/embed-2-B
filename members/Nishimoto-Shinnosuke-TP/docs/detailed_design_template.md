@@ -83,14 +83,14 @@
 【IRキーコード定義】（実機で受信した値を記入する）
   IR_CODE_NONE       : const uint32_t = 0x00000000  // 未受信を表す専用値
   IR_CODE_POWER      : const uint32_t = 0xA1A1A1A1  // TODO: 電源キー実測値
-  IR_CODE_MODE       : const uint32_t = 0xB2B2B2B2  // TODO: MODEキー実測値
-  IR_CODE_FAN_WEAK   : const uint32_t = 0xC3C3C3C3  // TODO: 0キー実測値
-  IR_CODE_FAN_MEDIUM : const uint32_t = 0xD4D4D4D4  // TODO: 1キー実測値
+  IR_CODE_MODE       : const uint32_t = 0xB2B2B2B2  // TODO: 0キー（モード切替）実測値
+  IR_CODE_FAN_WEAK   : const uint32_t = 0xC3C3C3C3  // TODO: 1キー実測値
+  IR_CODE_FAN_MEDIUM : const uint32_t = 0xD4D4D4D4  // TODO: 2キー実測値
   IR_CODE_FAN_STRONG : const uint32_t = 0xE5E5E5E5  // TODO: 3キー実測値
 
 【IRキーコード確定手順】
   1. IR受信テスト用に Serial.println(lastIrCode, HEX) を有効化する
-  2. リモコンの POWER / MODE / 0 / 1 / 3 を各3回ずつ押して受信値を記録する
+  2. リモコンの POWER / 0(切替) / 1(弱) / 2(中) / 3(強) を各3回ずつ押して受信値を記録する
   3. 同じキーで一致した値を各 IR_CODE_* に反映する
   4. 反映後、手動制御テスト（Section 5-1 No.3, No.4）で再確認する
 
@@ -534,7 +534,7 @@
 
 | No | テスト内容 | テスト手順 | 期待する結果 | 実際の結果 | 合否 |
 |:---|:---|:---|:---|:---|:---|
-| 1 | 非ブロッキング動作確認 | 温度取得中にリモコンのMODEキーを押す | 300ms以内にモード切替が反映される（入力取りこぼしなし） | | [ ] |
+| 1 | 非ブロッキング動作確認 | 温度取得中にリモコンの0キー（モード切替）を押す | 300ms以内にモード切替が反映される（入力取りこぼしなし） | | [ ] |
 | 2 | DHT11読取周期の確認 | SerialログでreadTemperature()成功時刻差を確認 | 約1000ms間隔で実行される | | [ ] |
 | 3 | 異常時点滅周期の確認 | MODE_ERROR状態で赤LED点滅周期を計測 | 約500ms周期でON/OFFが切替る | | [ ] |
 | 4 | IRデバウンスの確認 | 同一キーを超高速連打し受理回数を記録 | 50ms以内の重複入力は無視される | | [ ] |
