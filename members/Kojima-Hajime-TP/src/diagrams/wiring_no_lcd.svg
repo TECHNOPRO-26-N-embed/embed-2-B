@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <style>
+    .title { font: bold 20px sans-serif; }
+    .lbl { font: 14px sans-serif; }
+    .pin { font: 12px monospace; }
+    .box { fill: #f7f7f7; stroke: #333; stroke-width: 2px; }
+    .line { stroke: #333; stroke-width: 2px; }
+  </style>
+
+  <text x="20" y="30" class="title">配線図（LCD 未使用） — 温度センサーつき扇風機</text>
+
+  <!-- Arduino -->
+  <rect x="40" y="60" width="260" height="360" class="box"/>
+  <text x="60" y="90" class="lbl">Arduino Uno / Nano</text>
+  <text x="60" y="120" class="pin">D2: DHT11 DATA</text>
+  <text x="60" y="145" class="pin">D3: Power Switch (INPUT_PULLUP)</text>
+  <text x="60" y="170" class="pin">D4: Button WEAK (INPUT_PULLUP)</text>
+  <text x="60" y="195" class="pin">D5: Button STRONG (INPUT_PULLUP)</text>
+  <text x="60" y="220" class="pin">D6: MOSFET Gate (PWM OC0A)</text>
+  <text x="60" y="245" class="pin">D13: White LED (Power)</text>
+  <text x="60" y="270" class="pin">A0: Green LED (WEAK)</text>
+  <text x="60" y="295" class="pin">A1: Red LED (STRONG)</text>
+  <text x="60" y="330" class="pin">5V, GND: 電源</text>
+
+  <!-- DHT11 -->
+  <rect x="380" y="60" width="180" height="80" class="box"/>
+  <text x="400" y="90" class="lbl">DHT11 モジュール</text>
+  <text x="400" y="115" class="pin">VCC -> 5V</text>
+  <text x="400" y="135" class="pin">GND -> GND</text>
+  <text x="400" y="155" class="pin">DATA -> D2</text>
+
+  <!-- MOSFET + Motor -->
+  <rect x="380" y="200" width="260" height="120" class="box"/>
+  <text x="400" y="230" class="lbl">N-channel MOSFET</text>
+  <text x="400" y="255" class="pin">Gate -> D6</text>
+  <text x="400" y="275" class="pin">Drain -> Motor -</text>
+  <text x="400" y="295" class="pin">Source -> GND</text>
+
+  <rect x="700" y="220" width="140" height="80" class="box"/>
+  <text x="720" y="255" class="lbl">DC Motor</text>
+  <text x="720" y="280" class="pin">+ -> 5V (外部電源推奨)</text>
+
+  <!-- LEDs -->
+  <rect x="380" y="360" width="220" height="120" class="box"/>
+  <text x="400" y="390" class="lbl">LEDs</text>
+  <text x="400" y="415" class="pin">White -> D13 (via 220Ω)</text>
+  <text x="400" y="435" class="pin">Green -> A0 (via 220Ω)</text>
+  <text x="400" y="455" class="pin">Red -> A1 (via 220Ω)</text>
+
+  <!-- Wiring lines -->
+  <line x1="300" y1="120" x2="380" y2="120" class="line"/>
+  <line x1="300" y1="220" x2="380" y2="220" class="line"/>
+  <line x1="300" y1="245" x2="380" y2="245" class="line"/>
+  <line x1="300" y1="415" x2="380" y2="415" class="line"/>
+
+  <line x1="540" y1="260" x2="700" y2="260" class="line"/>
+  <line x1="540" y1="430" x2="700" y2="430" class="line" style="stroke-dasharray:4 4"/>
+
+  <!-- Notes -->
+  <text x="20" y="750" class="lbl">注: モーターが500mAを超える場合は外部電源を使用してください。ダイオードをモーターと並列に接続してください。</text>
+</svg>
