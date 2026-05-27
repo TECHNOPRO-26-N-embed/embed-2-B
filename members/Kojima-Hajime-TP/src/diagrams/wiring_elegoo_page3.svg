@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <style>
+    .bg{fill:#fff}
+    .txt{font-family: 'Helvetica Neue', Arial, sans-serif; font-size:14px;}
+    .title{font-size:20px; font-weight:700}
+    .arduino{fill:#d6eaf8; stroke:#1b4f72; stroke-width:2}
+    .bread{fill:#f6f6f6; stroke:#bdbdbd}
+    .wire{stroke-width:4; stroke-linecap:round}
+    .vcc{stroke:#e53935}
+    .gnd{stroke:#000}
+    .sig{stroke:#1e88e5}
+    .label{font-size:12px; fill:#222}
+    .comp{fill:#fff; stroke:#777}
+  </style>
+
+  <rect width="100%" height="100%" class="bg"/>
+  <text x="36" y="40" class="title">配線図（ELEGOO チュートリアル風 — ページ3 形式）</text>
+  <text x="36" y="64" class="txt">ブレッドボード上の部品配置とArduinoへの接続を視覚的に示します。初回はモーター未接続でセンサー・入力確認を推奨。</text>
+
+  <!-- Arduino -->
+  <g transform="translate(40,110)">
+    <rect x="0" y="0" width="360" height="220" rx="10" class="arduino"/>
+    <text x="18" y="26" class="label">Arduino Uno</text>
+    <!-- Pins left -->
+    <g font-size="12">
+      <rect x="12" y="48" width="40" height="18" rx="4" class="comp"/>
+      <text x="22" y="62" class="label">D2</text>
+      <rect x="12" y="72" width="40" height="18" rx="4" class="comp"/>
+      <text x="22" y="86" class="label">D3</text>
+      <rect x="12" y="96" width="40" height="18" rx="4" class="comp"/>
+      <text x="22" y="110" class="label">D4</text>
+      <rect x="12" y="120" width="40" height="18" rx="4" class="comp"/>
+      <text x="22" y="134" class="label">D5</text>
+      <rect x="12" y="144" width="40" height="18" rx="4" class="comp"/>
+      <text x="22" y="158" class="label">D6 (PWM)</text>
+      <rect x="12" y="168" width="40" height="18" rx="4" class="comp"/>
+      <text x="22" y="182" class="label">D13</text>
+    </g>
+    <!-- Pins right (analog) -->
+    <g transform="translate(300,30)">
+      <rect x="0" y="60" width="44" height="18" rx="4" class="comp"/>
+      <text x="6" y="74" class="label">A0</text>
+      <rect x="0" y="84" width="44" height="18" rx="4" class="comp"/>
+      <text x="6" y="98" class="label">A1</text>
+    </g>
+    <!-- power pins -->
+    <text x="18" y="206" class="label">5V</text>
+    <line x1="54" y1="202" x2="54" y2="300" class="wire vcc"/>
+    <text x="98" y="206" class="label">GND</text>
+    <line x1="138" y1="202" x2="138" y2="300" class="wire gnd"/>
+  </g>
+
+  <!-- Breadboard depiction -->
+  <g transform="translate(460,110)">
+    <rect x="0" y="0" width="600" height="260" rx="8" class="bread"/>
+    <text x="12" y="22" class="label">ブレッドボード（中央に部品を配置）</text>
+
+    <!-- DHT11 module -->
+    <rect x="36" y="48" width="120" height="56" rx="6" class="comp"/>
+    <text x="44" y="68" class="label">DHT11 モジュール</text>
+    <text x="44" y="86" class="label">VCC DATA GND</text>
+
+    <!-- Buttons -->
+    <rect x="196" y="48" width="80" height="22" class="comp" rx="4"/>
+    <text x="206" y="64" class="label">Power (Switch)</text>
+    <rect x="196" y="82" width="80" height="22" class="comp" rx="4"/>
+    <text x="206" y="98" class="label">WEAK Button</text>
+    <rect x="196" y="116" width="80" height="22" class="comp" rx="4"/>
+    <text x="206" y="132" class="label">STRONG Button</text>
+
+    <!-- Transistor & Motor -->
+    <rect x="316" y="48" width="180" height="120" class="comp" rx="6"/>
+    <text x="324" y="68" class="label">NPN トランジスタ (低側スイッチ)</text>
+    <text x="324" y="88" class="label">Base / Collector / Emitter</text>
+
+    <rect x="520" y="48" width="120" height="56" class="comp" rx="6"/>
+    <text x="532" y="68" class="label">DC Motor</text>
+    <text x="532" y="86" class="label">(+ / -)</text>
+
+    <!-- LEDs -->
+    <g>
+      <circle cx="40" cy="180" r="10" fill="#fff" stroke="#333"/>
+      <text x="64" y="184" class="label">White LED → D13</text>
+      <circle cx="40" cy="210" r="10" fill="#43a047" stroke="#333"/>
+      <text x="64" y="214" class="label">Green LED → A0</text>
+      <circle cx="40" cy="240" r="10" fill="#e53935" stroke="#333"/>
+      <text x="64" y="244" class="label">Red LED → A1</text>
+    </g>
+  </g>
+
+  <!-- wires: DHT11 -->
+  <line x1="520" y1="164" x2="430" y2="150" class="wire vcc"/>
+  <text x="432" y="146" class="label">DHT11 VCC → Arduino 5V</text>
+  <line x1="520" y1="178" x2="270" y2="184" class="wire sig"/>
+  <text x="272" y="180" class="label">DHT11 DATA → Arduino D2</text>
+  <line x1="520" y1="192" x2="520" y2="310" class="wire gnd"/>
+  <text x="524" y="308" class="label">DHT11 GND → GND</text>
+
+  <!-- wires: Buttons -->
+  <line x1="420" y1="234" x2="250" y2="250" class="wire sig"/>
+  <text x="252" y="246" class="label">Power → D3 (INPUT_PULLUP)</text>
+  <line x1="420" y1="256" x2="250" y2="280" class="wire sig"/>
+  <text x="252" y="276" class="label">WEAK → D4</text>
+  <line x1="420" y1="278" x2="250" y2="310" class="wire sig"/>
+  <text x="252" y="306" class="label">STRONG → D5</text>
+
+  <!-- wires: Transistor & Motor -->
+  <line x1="560" y1="240" x2="240" y2="300" class="wire sig" stroke="#1e88e5"/>
+  <text x="244" y="296" class="label">Transistor Base ← D6 (via Rb 1kΩ)</text>
+  <line x1="592" y1="260" x2="560" y2="440" class="wire pwr" stroke="#43a047"/>
+  <text x="596" y="442" class="label">Motor + → 外部電源 +V</text>
+  <line x1="560" y1="270" x2="560" y2="350" class="wire gnd"/>
+  <text x="564" y="346" class="label">Motor - → Transistor Collector (Emitter→GND)</text>
+
+  <!-- wires: LEDs -->
+  <line x1="220" y1="420" x2="80" y2="320" class="wire vcc"/>
+  <text x="84" y="318" class="label">White LED → D13</text>
+  <line x1="220" y1="450" x2="640" y2="330" class="wire sig"/>
+  <text x="644" y="328" class="label">Green LED → A0</text>
+  <line x1="220" y1="480" x2="680" y2="330" class="wire sig"/>
+  <text x="684" y="328" class="label">Red LED → A1</text>
+
+  <!-- Checklist box -->
+  <rect x="36" y="620" width="1120" height="220" fill="#fff9e6" stroke="#c7a000" rx="6"/>
+  <text x="52" y="648" class="label">チェック項目:</text>
+  <text x="52" y="674" class="label">・外部電源の GND と Arduino GND を共通にする</text>
+  <text x="52" y="698" class="label">・Base 抵抗 Rb：推奨 1kΩ（D6→Base）を挿入</text>
+  <text x="52" y="722" class="label">・Base→GND に 100kΩ 程度のプルダウンを入れる（確実に OFF）</text>
+  <text x="52" y="746" class="label">・モーターにフライバックダイオード（アノード→トランジスタ側、カソード→+V）を入れる</text>
+  <text x="52" y="770" class="label">・初回はモーター未接続で DHT11 とボタン動作を確認</text>
+
+  <text x="36" y="880" class="txt">ファイル: members/Kojima-Hajime-TP/src/diagrams/wiring_elegoo_page3.svg</text>
+</svg>

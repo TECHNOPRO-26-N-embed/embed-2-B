@@ -9,137 +9,92 @@
 - /Arduino Uno または Nano: 1 個
 - /DHT11 温湿度センサー モジュール: 1 個
 - /プッシュボタン（スイッチ）: 3 個（Power / WEAK / STRONG）
-- /N-channel MOSFET（ロジックレベル推奨、例: IRLZ44N や IRF520 モジュール）: 1 個
-- /小型 DC モーター（3–6V）: 1 個
-- /1N400x 系ダイオード（保護用）: 1 個
-- /抵抗 220Ω: 3 本（各 LED 用）
-- /抵抗 100Ω: 1 本（MOSFET ゲート直列、推奨）
-- /ジャンパーワイヤー（オス–オス/オス–メス混合）: 1 セット
-- ブレッドボード（ミニまたはフルサイズ）: 1 個
-- LED（白 / 緑 / 赤）: 各 1 個（合計 3 個）
+- /トランジスタ（NPN、低側スイッチ用途）: 1 個
+c:\\配電図 / Wiring & Power Distribution
 
-備考:
-- MOSFET はゲートに直列に 100Ω 程度を入れると安定します。
-- モーターが 500mA を超える場合は外部電源を使い、Arduino の 5V レールからは給電しないでください。
+このドキュメントは、詳細設計書と Arduino チュートリアル（Uno/ELEGOO 互換のピン配置）に合わせた配電図と配線要点をまとめたものです。
 
-## 配線（要約表）
+**目的**: Arduino（ATmega328P 互換）を利用して DHT11、ボタン、LED、トランジスタ（低側スイッチ）経由で DC モーターを駆動する際の電源分配と配線上の注意点を明確にする。
 
-| 機器 | 数量 | モジュール端子 | Arduino ピン | 備考 |
-|---|:--:|---:|:---:|---|
-| DHT11 モジュール | 1 | DATA | D2 | VCC→5V, GND→GND。モジュールにプルアップが無い場合は DATA と 5V 間に 4.7k〜10k を挿入 |
-| Power Switch（電源ボタン） | 1 | — | D3 | `INPUT_PULLUP`（押下で GND）で電源 ON を検出 |
-| Button（弱） | 1 | — | D4 | `INPUT_PULLUP`（押下で LOW）デバウンス処理必須 |
-| Button（強） | 1 | — | D5 | `INPUT_PULLUP`（押下で LOW） |
-| N-channel MOSFET（Gate） | 1 | — | D6 | Gate→D6（PWM 出力 OC0A）。Drain→Motor-, Source→GND。Gate に 100Ω 直列推奨 |
-| DC モーター | 1 | + / - | — | +→外部 5V（Arduino の 5V レールを使わない方が安全）、-→MOSFET の Drain。並列に 1N400x を接続（逆起電力対策） |
-| White LED（電源表示） | 1 | + → 抵抗 → - | D13 | 抵抗 220Ω を直列、カソード→GND |
-| Green LED（弱表示） | 1 | + → 抵抗 → - | A0（デジタル出力可） | 抵抗 220Ω を直列。A0 はデジタルピンとして使用可（`digitalWrite(A0, HIGH)` など） |
-| Red LED（強表示） | 1 | + → 抵抗 → - | A1（デジタル出力可） | 抵抗 220Ω を直列 |
+**前提**:
+- MCU（Arduino Uno）5V はセンサ・ロジック用。モーターは分離した外部電源（推奨 5–12V、モーター仕様に合わせる）を使用。常に Arduino GND と外部電源の GND を共通にすること。
 
-備考:
-- モーターの消費電流が大きい場合は外部電源と共通 GND を使用してください。
-- MOSFET のボード（モジュール）を使うと配線が簡単です。ゲートに 100Ω、モータ両端にフライバックダイオードを必ず入れてください。
+## コンポーネント要約
+- Arduino Uno (5V ロジック)
+- DHT11 温度センサ
+- トランジスタ (NPN, ベースを PWM で駆動する用途に適したもの)
+- DC モーター（適切な動作電圧）
+- フライバックダイオード（1N400x または ショットキー 1N5819）
+- ゲート直列抵抗 100Ω
+- ゲートプルダウン 10kΩ
+- 抵抗類（LED 用 330Ω など）
+- 3 x 押しボタン（GND に接続するタイプ、内部プルアップ使用）
 
-## ブレッドボード配置（手順）
-下の手順で順に配線してください。作業中は電源を切った状態で行い、初回はモーターを接続せずに動作確認を行ってください。
+## 電源分配（要点）
+- Arduino 5V はセンサ（DHT11）と LED、ボタンのロジックに使用する。
+- モーターは外部電源の +V（例 6V）に接続。モーターの -（マイナス）はトランジスタのコレクタを介して GND に落とす。
+- 外部電源の GND を Arduino の GND に必ず接続する（共通 GND）。
+- モーターは誘導性負荷のため、フライバックダイオードをモーターに並列（逆向き）に接続する。カソード（線付き）を +V、アノードをトランジスタ側（コレクタ/モーター- 側）に接続。
 
-1. Arduino の配置と電源レール
-   - ブレッドボードの中央に Arduino を差し込み、5V と GND のレールが使えるように配置します。
-   - 共通 GND を必ず意識してください（外部電源を使う場合も Arduino の GND と共通にします）。
+## 推奨配線（ピン・電源対応）
 
-2. DHT11 の接続（センサー）
-   - DHT11 の VCC → Arduino 5V、GND → Arduino GND、DATA → D2 に接続します。
-   - DHT モジュールにプルアップ抵抗が無い場合は、DATA と 5V の間に 4.7k〜10kΩ を入れてください。
+- DHT11 DATA -> Arduino D2 (内部プルアップではなく 4.7k–10k の外部プルアップを推奨)
+- Power（手動/自動切替, SW） -> Arduino D3 (INPUT_PULLUP)
+- Weak button -> Arduino D4 (INPUT_PULLUP)
+- Strong button -> Arduino D5 (INPUT_PULLUP)
+ - トランジスタのベース -> Arduino D6 〜 1kΩ（ベース抵抗）〜 ベース
+  - ベース と GND 間に 100kΩ 程度のプルダウン（浮遊防止）
+  - トランジスタのコレクタ -> モーター -
+  - モーター + -> 外部電源 +V
+  - トランジスタのエミッタ -> GND (共通)
+- LEDs
+  - 白 LED -> D13 (PB5)（電源ON 表示、330Ω）
+  - 緑 LED -> A0 (PC0)（弱動作、330Ω）
+  - 赤 LED -> A1 (PC1)（強動作、330Ω）
 
-3. 電源スイッチとボタン（入力）
-   - 電源スイッチ（Power）: 片側を D3、もう片側を GND に接続します。ソフト側は `INPUT_PULLUP` を使い、押下で LOW を検出します。
-   - 弱ボタン（WEAK）: 片側を D4、もう片側を GND に接続します（`INPUT_PULLUP`）。
-   - 強ボタン（STRONG）: 片側を D5、もう片側を GND に接続します（`INPUT_PULLUP`）。
-   - 各ボタンはスイッチの向きと配線を確認し、テスト時に押下で GND に接続されることを確認してください。
-
-4. MOSFET とモーター（出力）
-   - MOSFET の Gate → D6（PWM 出力）。Gate に 100Ω 程度の直列抵抗を推奨します。
-   - MOSFET の Drain → モーターのマイナス端、Source → GND。
-   - モーターのプラス端は外部 5V（または Arduino の 5V）に接続します。モーターの消費電流が大きい場合は外部電源を使用してください。
-   - モーターと並列に 1N400x 等のダイオードを入れ、カソードをモーターの + 側、アノードを - 側に接続して逆起電力対策をしてください。
-
-5. LED（インジケータ）
-   - 各 LED のアノード側に 220Ω を直列に入れ、カソードを GND に接続します。
-   - White LED（電源表示）→ D13／抵抗／LED／GND
-   - Green LED（弱表示） → A0（デジタル出力として使用）／抵抗／LED／GND
-   - Red LED（強表示）   → A1（デジタル出力として使用）／抵抗／LED／GND
-
-6. 配線チェックと電源投入
-   - すべての配線を再確認（GND の共通、抵抗の有無、スイッチの向き）。
-   - 初回はモーターを接続せず、Arduino を USB 給電で起動してシリアルログ（9600bps）と LED の動作、DHT の読み取り結果を確認してください。
-   - センサーとボタンが正しく動作すればモーターを接続し、低電流で問題ないか確認してから本稼働用の電源に切り替えてください。
-
-## 視覚的な mermaid 図（簡潔）
-
+## 回路図（簡易、Mermaid）
 ```mermaid
 flowchart LR
-   subgraph P[電源]
-      V5[(+5V)]
-      GND[(GND)]
-   end
+  subgraph Arduino[Arduino Uno]
+    D2[DHT11 DATA]
+    D3[Power SW D3]
+    D4[Weak D4]
+    D5[Strong D5]
+    D6(PWM D6) -->|1kΩ| Gate[トランジスタ ベース]
+    D13[LED White]
+    A0[LED Green]
+    A1[LED Red]
+    GND_ARD[GND]
+  end
+  Motor[DC Motor]
+  Batt[(Motor Power +V)]
+  Diode[/1N400x\nFlyback/]
+  MOSFET[トランジスタ\nコレクタ/エミッタ]
 
-   subgraph S[センサー]
-      DHT[DHT11 Module]
-   end
-
-   subgraph I[入力（ボタン）]
-      PowerBtn[Power Switch\n(D3)]
-      BtnW[Button WEAK\n(D4)]
-      BtnS[Button STRONG\n(D5)]
-   end
-
-   subgraph O[出力]
-      MOSFET[MOSFET Gate\n(D6, PWM)]
-      Motor[DC Motor]
-      LEDW[White LED\n(D13)]
-      LEDG[Green LED\n(A0)]
-      LEDR[Red LED\n(A1)]
-   end
-
-   Arduino[Arduino Uno / Nano]
-
-   %% 電源ライン
-   Arduino -- "5V" --> V5
-   Arduino -- "GND" --> GND
-
-   %% センサー
-   Arduino -- "D2 → DATA" --> DHT
-   DHT -- "VCC → 5V" --> V5
-   DHT -- "GND → GND" --> GND
-
-   %% 入力（ボタン）
-   Arduino -- "D3 → Power (INPUT_PULLUP)" --> PowerBtn
-   PowerBtn -- "GND when pressed" --> GND
-   Arduino -- "D4 → WEAK (INPUT_PULLUP)" --> BtnW
-   BtnW -- "GND when pressed" --> GND
-   Arduino -- "D5 → STRONG (INPUT_PULLUP)" --> BtnS
-   BtnS -- "GND when pressed" --> GND
-
-   %% 出力（MOSFET / Motor / LEDs）
-   Arduino -- "D6 → Gate (PWM OC0A)" --> MOSFET
-   MOSFET -- "Drain → Motor -" --> Motor
-   Motor -- "+ → V5" --> V5
-   Motor -- "Diode → GND (flyback)" --> GND
-
-   Arduino -- "D13 → White LED (220Ω)" --> LEDW
-   Arduino -- "A0 → Green LED (220Ω)" --> LEDG
-   Arduino -- "A1 → Red LED (220Ω)" --> LEDR
-
-   %% 補足ノート（図外）
-   classDef note fill:#fff7c2,stroke:#333,stroke-width:1px;
-   note1["注: 初回はモーター未接続でセンサー・ボタンを確認してください\nGateway に 100Ω、モーターにフライバックダイオードを必ず挿入"]:::note
-   Arduino -.-> note1
+  Batt -->|+V| Motor
+  Motor -->|–| MOSFET
+  MOSFET -->|E| GND_ARD
+  MotoR---Diode---Batt
+  GND_ARD --- Batt
 ```
 
-## チュートリアル風の注釈（安全に組み立てるための小技）
--- 初回はモーターを接続せず、DHT の表示・シリアルログで動作確認してからモーターを接続してください。
-- モーター電流が 500mA を超える場合は外部電源を使用し、Arduino の 5V レールからは給電しないでください。
-- MOSFET のゲートに 100Ω 程度の直列抵抗を入れるとスイッチングノイズが抑えられます。
+## 配線チェックリスト（安全）
+1. 電源を切った状態で配線を確認する。
+2. モーターの + が外部電源の + に直接つながっていること、モーターの - がトランジスタのコレクタに接続されていることを確認する。
+3. トランジスタのピン配列（B/C/E）を部品データシートで確認する（TO-220/TO-126 等で向きが異なる場合あり）。
+4. ベースに 1kΩ（ベース抵抗）、ベース→GND に 100kΩ 程度のプルダウンを入れていることを確認。
+5. フライバックダイオードはモーターに並列で、カソードを +V、アノードをトランジスタ側に接続する。
+6. Arduino の GND と外部電源の GND を必ず共通化する。
+
+## Arduino チュートリアル準拠メモ
+- ボタンは Arduino の `INPUT_PULLUP` を使う場合、片側を GND に接続する（押下で LOW になる）。チュートリアルの接続図に従ってください。
+- PWM は Arduino の PWM 対応ピン（D3,D5,D6,D9,D10,D11）を使用します。ここでは `D6` を選定しています。
+- DHT11 は 3.3–5V ロジックで動作します。チュートリアル通りに 4.7k–10k のプルアップを DATA ラインに入れると安定します。
+
+## よくある誤りと対策（短く）
+ - トランジスタを高側スイッチとして誤接続すると動作不良や常時 ON の原因になる。必ず低側スイッチ（モーターのマイナス側）に配置する。
+ - ベースの未接続（浮遊）やプルダウン忘れ → ベースがノイズで ON になりうる。ベース抵抗とプルダウンの追加を推奨。
+ - フライバックダイオード未接続 → トランジスタや MCU を損傷する可能性。
 
 ---
-このファイルをベースに、PDF 風の図（PNG/SVG）を作成してほしければ言ってください。PNG あるいは PDF で出力する場合は追加で生成手順を実行します。
+必要であれば、この配電図を基に実際のブレッドボード配線手順（写真つき）と PNG/PDF 図を生成します。どちらを先に希望しますか？

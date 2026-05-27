@@ -29,10 +29,11 @@
 
 /* LCD を使わない設定に変更 */
 
-// MOSFET gate -> D6 (PD6) (OC0A)
-#define MOSFET_DDR DDRD    // MOSFET 用 DDR
-#define MOSFET_PORT PORTD  // MOSFET 用 PORT
-#define MOSFET_BIT PD6     // MOSFET Gate が接続されるピン（D6 / OC0A）
+// トランジスタ（NPN）ベース -> D6 (PD6) (OC0A)
+// NOTE: レジスタ／マクロ名は互換性のため変更していません。
+#define MOSFET_DDR DDRD    // トランジスタ用 DDR
+#define MOSFET_PORT PORTD  // トランジスタ用 PORT
+#define MOSFET_BIT PD6     // トランジスタのベースが接続されるピン（D6 / OC0A）
 
 // LEDs: D13 (PB5), A0->PC0, A1->PC1
 #define LEDW_PORT PORTB  // 白LED (D13) は PB5

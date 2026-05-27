@@ -16,10 +16,10 @@ Arduino スケッチ（温度センサーつき扇風機）
  
  LCD は使いません（表示不要）。
 
-注意: 上記の割当のため、MOSFET と LED は別ピンに移動しています。
+注意: 上記の割当のため、トランジスタ（ベース）と LED は別ピンに移動しています。
 
 ピン割当（このプロジェクト）:
-- MOSFET (Gate / PWM): D6
+- トランジスタ (ベース / PWM): D6
 - DHT11 DATA: D2
 - Power Switch: D3 (INPUT_PULLUP, 押下で GND)
 - Button WEAK: D4 (INPUT_PULLUP)

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <style>
+    .board { fill:#f7f7f7; stroke:#333; stroke-width:2 }
+    .txt { font-family: Arial, Helvetica, sans-serif; font-size:14px; }
+    .pin { fill:#eaeaea; stroke:#666 }
+    .wire { stroke-width:3; stroke-linecap:round }
+    .gnd { stroke:#000 }
+    .vcc { stroke:#e53935 }
+    .signal { stroke:#1e88e5 }
+    .pwr { stroke:#43a047 }
+    .comp { fill:#fff; stroke:#555; stroke-width:1.5 }
+  </style>
+
+  <!-- Title -->
+  <text x="18" y="28" class="txt" font-size="18" font-weight="bold">配電図（Arduino チュートリアル風） - Wiring Diagram (Transistor)</text>
+
+  <!-- Arduino depiction -->
+  <g transform="translate(30,60)">
+    <rect x="0" y="0" width="320" height="220" class="board" rx="8"/>
+    <text x="12" y="22" class="txt">Arduino Uno</text>
+    <!-- digital pins left -->
+    <g fill="#fff" stroke="#666">
+      <rect x="8" y="36" width="36" height="16" class="pin"/>
+      <text x="18" y="48" class="txt">D2</text>
+      <rect x="8" y="60" width="36" height="16" class="pin"/>
+      <text x="18" y="72" class="txt">D3</text>
+      <rect x="8" y="84" width="36" height="16" class="pin"/>
+      <text x="18" y="96" class="txt">D4</text>
+      <rect x="8" y="108" width="36" height="16" class="pin"/>
+      <text x="18" y="120" class="txt">D5</text>
+      <rect x="8" y="132" width="36" height="16" class="pin"/>
+      <text x="18" y="144" class="txt">D6</text>
+      <rect x="8" y="156" width="36" height="16" class="pin"/>
+      <text x="18" y="168" class="txt">D13</text>
+    </g>
+    <!-- analog pins right -->
+    <g transform="translate(260,26)" fill="#fff" stroke="#666">
+      <rect x="0" y="48" width="36" height="16" class="pin"/>
+      <text x="6" y="60" class="txt">A0</text>
+      <rect x="0" y="72" width="36" height="16" class="pin"/>
+      <text x="6" y="84" class="txt">A1</text>
+    </g>
+    <!-- power pins bottom -->
+    <text x="12" y="210" class="txt">5V</text>
+    <line x1="46" y1="206" x2="46" y2="300" class="wire vcc"/>
+    <text x="80" y="210" class="txt">GND</text>
+    <line x1="118" y1="206" x2="118" y2="300" class="wire gnd"/>
+  </g>
+
+  <!-- Breadboard / components area -->
+  <g transform="translate(400,60)">
+    <!-- DHT11 -->
+    <rect x="0" y="0" width="160" height="80" class="comp" rx="6"/>
+    <text x="8" y="18" class="txt">DHT11モジュール</text>
+    <text x="8" y="36" class="txt">VCC | DATA | GND</text>
+    <!-- DHT wires -->
+    <line x1="160" y1="18" x2="340" y2="18" class="wire vcc"/>
+    <line x1="160" y1="36" x2="340" y2="36" class="wire signal"/>
+    <line x1="160" y1="54" x2="340" y2="54" class="wire gnd"/>
+    <text x="344" y="20" class="txt">→ Arduino 5V</text>
+    <text x="344" y="38" class="txt">→ Arduino D2</text>
+    <text x="344" y="56" class="txt">→ Arduino GND</text>
+  </g>
+
+  <!-- Buttons area -->
+  <g transform="translate(400,180)">
+    <rect x="0" y="0" width="120" height="110" class="comp" rx="6"/>
+    <text x="8" y="18" class="txt">入力（ボタン）</text>
+    <text x="8" y="36" class="txt">Power: D3  (INPUT_PULLUP)</text>
+    <text x="8" y="56" class="txt">WEAK: D4  (INPUT_PULLUP)</text>
+    <text x="8" y="76" class="txt">STRONG: D5 (INPUT_PULLUP)</text>
+    <line x1="120" y1="40" x2="340" y2="80" class="wire signal"/>
+    <line x1="120" y1="60" x2="340" y2="100" class="wire signal"/>
+    <line x1="120" y1="80" x2="340" y2="120" class="wire signal"/>
+    <text x="344" y="84" class="txt">→ Arduino D3</text>
+    <text x="344" y="104" class="txt">→ Arduino D4</text>
+    <text x="344" y="124" class="txt">→ Arduino D5</text>
+  </g>
+
+  <!-- Transistor + Motor area -->
+  <g transform="translate(400,320)">
+    <rect x="0" y="0" width="220" height="140" class="comp" rx="6"/>
+    <text x="8" y="18" class="txt">モータ駆動回路（NPN トランジスタ）</text>
+    <!-- transistor symbol -->
+    <g transform="translate(20,28)">
+      <rect x="0" y="0" width="60" height="60" fill="#fff" stroke="#333"/>
+      <text x="6" y="18" class="txt">NPN</text>
+      <text x="6" y="36" class="txt">Transistor</text>
+    </g>
+    <!-- motor symbol -->
+    <g transform="translate(110,28)">
+      <circle cx="40" cy="30" r="18" fill="#fff" stroke="#333"/>
+      <line x1="40" y1="12" x2="40" y2="6" stroke="#333"/>
+      <text x="2" y="64" class="txt">DC Motor</text>
+    </g>
+    <!-- diode -->
+    <text x="32" y="110" class="txt">フライバックダイオード（1N400x）</text>
+
+    <!-- wires: Base to D6 -->
+    <line x1="80" y1="30" x2="240" y2="120" class="wire signal" stroke-dasharray=""/>
+    <text x="244" y="122" class="txt">→ Arduino D6（via Rb 1kΩ）</text>
+
+    <!-- motor + to battery + -->
+    <line x1="150" y1="58" x2="560" y2="220" class="wire pwr"/>
+    <text x="564" y="222" class="txt">→ 外部電源 +V（例 6V）</text>
+
+    <!-- motor - to transistor collector and to GND -->
+    <line x1="130" y1="58" x2="240" y2="120" class="wire gnd"/>
+    <text x="244" y="122" y2="140" class="txt">→ Transistor Collector</text>
+  </g>
+
+  <!-- LEDs -->
+  <g transform="translate(30,320)">
+    <rect x="0" y="0" width="320" height="120" class="comp" rx="6"/>
+    <text x="8" y="18" class="txt">インジケータ LED</text>
+    <circle cx="40" cy="56" r="10" fill="#ffffff" stroke="#333"/>
+    <text x="64" y="60" class="txt">White LED → D13</text>
+    <circle cx="40" cy="86" r="10" fill="#43a047" stroke="#333"/>
+    <text x="64" y="90" class="txt">Green LED → A0</text>
+    <circle cx="40" cy="116" r="10" fill="#e53935" stroke="#333"/>
+    <text x="64" y="120" class="txt">Red LED → A1</text>
+  </g>
+
+  <!-- Notes & checklist -->
+  <g transform="translate(30,480)">
+    <rect x="0" y="0" width="1120" height="260" fill="#fff9e6" stroke="#c7a000"/>
+    <text x="12" y="22" class="txt">チェックリスト</text>
+    <text x="12" y="46" class="txt">・外部電源の GND を Arduino GND と共通化する</text>
+    <text x="12" y="70" class="txt">・トランジスタのピン配置（B/C/E）を確認する</text>
+    <text x="12" y="94" class="txt">・Base 抵抗 Rb：1kΩ を推奨、Base→GND に 100kΩ プルダウンを入れる</text>
+    <text x="12" y="118" class="txt">・モーターにフライバックダイオードを並列に接続する</text>
+    <text x="12" y="142" class="txt">・初回はモーターを接続せず、DHT11 とボタン動作を確認する</text>
+    <text x="12" y="166" class="txt">・DHT11 DATA ラインに 4.7k〜10k のプルアップを推奨</text>
+  </g>
+
+  <!-- Footer small note -->
+  <text x="18" y="770" class="txt" font-size="12">注: この図はチュートリアル風の簡略図です。実装前に部品データシートで電流/電圧を必ず確認してください。</text>
+</svg>
