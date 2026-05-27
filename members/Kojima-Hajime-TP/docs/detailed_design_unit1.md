@@ -37,7 +37,7 @@
   PIN_POWER_SW    = 3    // 電源スイッチ（INPUT_PULLUP想定）
   PIN_BTN_WEAK    = 4    // 手動：弱ボタン（INPUT_PULLUP）
   PIN_BTN_STRONG  = 5    // 手動：強ボタン（INPUT_PULLUP）
-  PIN_MOSFET      = 9    // MOSFETゲート（PWM出力）
+  PIN_MOSFET      = 9    // トランジスタのベース（PWM出力）
   PIN_LED_WHITE   = 10   // 電源ON=白LED
   PIN_LED_GREEN   = 11   // 弱=緑LED
   PIN_LED_RED     = 12   // 強=赤LED
@@ -49,14 +49,14 @@
   currentState    : int = STATE_IDLE
 
 【タイマー（millis()用）】
-  lastMillis_LED      : unsigned long = 0
-  lastMillis_Sensor   : unsigned long = 0
-  lastDebounceMillis  : unsigned long = 0
-  lastDebounceWeak    : unsigned long = 0
-  lastDebounceStrong  : unsigned long = 0
+  lastMillis_LED      : unsigned long = 0 // 最後にLED表示を更新した時刻
+  lastMillis_Sensor   : unsigned long = 0 // 最後にセンサーを読んだ時刻
+  lastDebounceMillis  : unsigned long = 0 // 汎用的なデバウンス用の最終時刻
+  lastDebounceWeak    : unsigned long = 0 // 弱ボタンで状態変化があったときの時刻
+  lastDebounceStrong  : unsigned long = 0 // 強ボタンで状態変化があったときの時刻
 
 【センサー・入力値】
-  sensorTemp          : float  = 0.0
+  sensorTemp          : float  = 0.0 // DHTから読んだ温度
   sensorValid         : bool = false
   filteredTemp        : float = 0.0
   filterBuffer        : float [FILTER_WINDOW_N] // 移動平均用リングバッファ（宣言例）
@@ -110,7 +110,7 @@
   - センサー管理初期化: `sensorFailCount = 0`, `lastValidMillis = 0`, `lastDebounceWeak = 0`, `lastDebounceStrong = 0`
 3. 起動表示と安全確認
   - 白LED を短く点灯（約500〜1000ms）して消灯し起動を表示
-  - `analogWrite(PIN_MOSFET, 0)` でモーター停止を確認し、初回のセンサー読取タイマーをセット
+  - `analogWrite(PIN_MOSFET, 0)` でモーター停止を確認し、初回のセンサー読取タイマーをセット（ベースを確実に LOW にするため、必要に応じてデジタルで LOW を出力する）
 ```
 
 ---
@@ -309,7 +309,7 @@
   - STATE_IDLE: motorPWM = 0; digitalWrite LEDs = OFF
   - STATE_WEAK: motorPWM = PWM_WEAK; 白LED=ON, 緑LED=ON, 赤LED=OFF
   - STATE_STRONG: motorPWM = PWM_STRONG; 白LED=ON, 緑LED=OFF, 赤LED=ON
-2. analogWrite(PIN_MOSFET, motorPWM)
+2. analogWrite(PIN_MOSFET, motorPWM) // PWM はベース駆動に利用
 3. updateLED() を呼ぶ（必要なら点滅パターン）
 ```
 
@@ -429,8 +429,8 @@
 
 | No | テスト対象の関数 | 入力・操作 | 期待する結果 | 実際の結果 | 合否 |
 |:---|:---|:---|:---|:---|:---|
-| 1 | readButton() | 弱ボタンを1回押す | 押下が1回だけ確定し modeManual=true かつ currentState=STATE_WEAK になる | | [ ] |
-| 2 | readButton() | 弱→強を素早く切替 | デバウンスで1回のみ反応し、最終押下（強）が currentState に反映される | | [ ] |
+| 1 | readButton() | 弱ボタンを1回押す | 押下が1回だけ確定し modeManual=true かつ currentState=STATE_WEAK になる | | [ 合 ] |
+| 2 | readButton() | 弱→強を素早く切替 | デバウンスで1回のみ反応し、最終押下（強）が currentState に反映される | | [ 合 ] |
 | 3 | readSensor() | センサーを正常範囲で使う | 仕様範囲内の値が返る | | [ ] |
 | 4 | readSensor() | センサーを遮蔽・範囲外に向ける | 誤動作しない | | [ ] |
 | 5 | filteredTemp (移動平均フィルタ) | バッファに複数の温度値を追加して平均を計算 | バッファ平均が正しく計算され `filteredTemp` に反映される | | [ ] |
@@ -445,9 +445,9 @@
 
 | No | テスト対象の関数 | 入力・操作 | 期待する結果 | 実際の結果 | 合否 |
 |:---|:---|:---|:---|:---|:---|
-| 1 | updateOutput(STATE_IDLE) | state=STATE_IDLE を渡す | 白LEDが短パルス（待機表現）、PWM=0 | | [ ] |
-| 2 | updateOutput(STATE_WEAK) | state=STATE_WEAK を渡す | 白+緑LED点灯、PWM=PWM_WEAK（約153） | | [ ] |
-| 3 | updateOutput(STATE_STRONG) | state=STATE_STRONG を渡す | 白+赤LED点灯、PWM=PWM_STRONG（255） | | [ ] |
+| 1 | updateOutput(STATE_IDLE) | state=STATE_IDLE を渡す | 白LEDが短パルス（待機表現）、PWM=0 | | [ 合 ] |
+| 2 | updateOutput(STATE_WEAK) | state=STATE_WEAK を渡す | 白+緑LED点灯、PWM=PWM_WEAK（約153） | 白、緑LEDは点灯し、モーターが駆動した。| [ 合 ] |
+| 3 | updateOutput(STATE_STRONG) | state=STATE_STRONG を渡す | 白+赤LED点灯、PWM=PWM_STRONG（255） | 白、赤LEDは点灯し、モーターが駆動した。 | [ 合 ] |
 
 ### 5-3. タイミング・並行動作テスト
 
@@ -470,13 +470,13 @@
 **AIの回答（要約）：**
 - DHT11 は読み取り間隔が約2秒のため、自動制御の応答は遅くなる（要件の「1秒応答」は手動操作で担保する設計）。
 - モーターの突入電流で Arduino の 5V が一時的に降下しリセットする恐れがある（外部電源の採用と十分なデカップリングを推奨）。
-- MOSFET による GND 側スイッチでは逆起電力対策（フライバックダイオード）と電源デカップリングが必要。
+- トランジスタによる GND 側スイッチでは逆起電力対策（フライバックダイオード）と電源デカップリングが必要。
 - PWM/タイマの競合（例: D9/D10 は Timer1 を使用）や `delay()` によるブロッキングで応答性が低下する点に注意。
 
 **対応した内容：**
 - DHT11 の仕様を踏まえ `sensorValid` フラグと `SENSOR_INTERVAL = 2000 ms` を導入し、手動ボタン操作は即時反応とする設計にした。
 - `motorPWM` の定義として `PWM_WEAK` / `PWM_STRONG` を明記し、PWM 値のクランプと出力設計を追加。電源安定化のため 100µF + 0.1µF のデカップリングと外部電源を推奨。
-- ハード設計に MOSFET + フライバックダイオードの対策を明記（basic_design.md にも反映済み）。
+- ハード設計に トランジスタ + フライバックダイオードの対策を明記（basic_design.md にも反映済み）。
 - 全処理を `millis()` ベースの非ブロッキングで実装し、ボタンは `DEBOUNCE_DELAY = 50 ms` でデバウンスする方針を明記した。
 
 ---
@@ -494,7 +494,7 @@
   - 入力系の検証：ボタンのデバウンス（短時間のチャタリング無視）、短押し/長押し・同時押下の取り扱い、電源スイッチの立ち上がり検出を検証するテストを追加してください。
   - 出力系の検証：`updateOutput()` の PWM 値クランプ（0–255）、LED 表示パターン（待機・弱・強）および analogWrite の反映を確認するテストが必要です。
   - 並行性・応答性：`millis()` ベースの非ブロッキング処理で、LED 点滅中でもボタン応答やセンサー読み取りが妨げられないことを確認するテストを設けてください。
-  - ハード依存項目：電源降下や MOSFET の逆起電力対策などは単体テストで再現が難しいため、結合テスト／実機検証項目として明記してください。
+  - ハード依存項目：電源降下やトランジスタの逆起電力対策などは単体テストで再現が難しいため、結合テスト／実機検証項目として明記してください。
 
 **対応した内容：**
 - Section 5 に 19/20/25℃ の境界テストと `filteredTemp` の単体テストを追加済みです。
