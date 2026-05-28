@@ -2,13 +2,19 @@
 
 #include <stdlib.h>
 
+#include "tests/branch_trace.h"
+
 int readPotSpeed(int potRaw, int previousMotorSpeed) {
   long mapped;
 
   if (potRaw < 0) {
+    TRACE_BRANCH("pot:clamp-low");
     potRaw = 0;
   } else if (potRaw > 1023) {
+    TRACE_BRANCH("pot:clamp-high");
     potRaw = 1023;
+  } else {
+    TRACE_BRANCH("pot:normal");
   }
 
   /*
@@ -19,8 +25,10 @@ int readPotSpeed(int potRaw, int previousMotorSpeed) {
 
   /* 小さな揺れはノイズとして無視 */
   if (abs((int)mapped - previousMotorSpeed) < POT_DEADBAND) {
+    TRACE_BRANCH("pot:deadband-hit");
     return previousMotorSpeed;
   }
 
+  TRACE_BRANCH("pot:outside-deadband");
   return (int)mapped;
 }

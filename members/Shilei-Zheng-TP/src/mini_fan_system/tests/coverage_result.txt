@@ -1,0 +1,100 @@
+Mini Fan System - PC Coverage Test
+===================================
+
+=== SCENARIO 1: systemContextInit(NULL) ===
+  [BR] sysctx:null
+
+=== SCENARIO 2: systemContextInit(&ctx) normal ===
+  [BR] sysctx:normal
+
+=== SCENARIO 3: readButtonEdge(NULL) ===
+  [BR] button:null
+
+=== SCENARIO 4: boot guard: button held LOW at power-on ===
+  [BR] button:guard-low
+  [BR] button:guard-release
+
+=== SCENARIO 5: normal press after boot guard cleared ===
+  [BR] button:edge-confirmed
+
+=== SCENARIO 6: debounce: rapid second press within 50ms ===
+  [BR] button:already-released
+  [BR] button:debounce-skip
+
+=== SCENARIO 7: button release: released vs already-released ===
+  [BR] button:released
+  [BR] button:still-pressed
+
+=== SCENARIO 8: readPotSpeed: clamp-low (negative) ===
+  [BR] pot:clamp-low
+  [BR] pot:deadband-hit
+
+=== SCENARIO 9: readPotSpeed: clamp-high (over 1023) ===
+  [BR] pot:clamp-high
+  [BR] pot:outside-deadband
+
+=== SCENARIO 10: readPotSpeed: normal range, outside deadband ===
+  [BR] pot:normal
+
+=== SCENARIO 11: readPotSpeed: deadband hit (small change kept) ===
+
+=== SCENARIO 12: isAbnormalReading(NULL) ===
+  [BR] fault:null
+
+=== SCENARIO 13: isAbnormalReading: not pinned (normal value) ===
+  [BR] fault:not-pinned
+
+=== SCENARIO 14: isAbnormalReading: pinned start -> not-yet -> confirmed ===
+  [BR] fault:pinned-start
+  [BR] fault:pinned-not-yet
+  [BR] fault:pinned-confirmed
+
+=== SCENARIO 15: isAbnormalReading: value >= 1021 also counts ===
+
+=== SCENARIO 16: updateState: null pointers ===
+  [BR] state:null
+
+=== SCENARIO 17: updateState: all 8 combinations (per detailed_design §5-4) ===
+  [BR] state:off-pressed
+  [BR] state:off-idle
+  [BR] state:running-abnormal
+  [BR] state:running-pressed
+  [BR] state:running-idle
+  [BR] state:fault-pressed
+  [BR] state:fault-idle
+
+=== SCENARIO 18: updateMotor: null / stopped / under-min / active / clamp-low / clamp-high ===
+  [BR] motor:null
+  [BR] motor:stopped-state
+  [BR] motor:clamp-normal
+  [BR] motor:under-min
+  [BR] motor:active
+  [BR] motor:clamp-low
+  [BR] motor:clamp-high
+
+=== SCENARIO 19: updateLED: null / OFF / RUNNING / FAULT enter / FAULT toggle / FAULT hold ===
+  [BR] led:null
+  [BR] led:off
+  [BR] led:running
+  [BR] led:fault-enter
+  [BR] led:fault-hold
+  [BR] led:fault-toggle
+
+=== SCENARIO 20: logMainStatus: null / throttled / emit + logStateTransition ===
+  [BR] debug:null
+  [BR] debug:throttled
+  [BR] debug:emit
+state:1 pot:512 pwm:128
+  [BR] debug:transition
+[TR] 0 -> 1
+
+========================================================
+  Branch Coverage Report
+========================================================
+  Total branches registered : 45
+  Hit                        : 45
+  Missing                    : 0
+--------------------------------------------------------
+
+  [OK] All branches covered (45/45)
+========================================================

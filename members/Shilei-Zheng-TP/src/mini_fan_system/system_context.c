@@ -1,9 +1,13 @@
 #include "system_context.h"
 
+#include "tests/branch_trace.h"
+
 void systemContextInit(SystemContext *ctx) {
   if (ctx == 0) {
+    TRACE_BRANCH("sysctx:null");
     return;
   }
+  TRACE_BRANCH("sysctx:normal");
 
   ctx->currentState = STATE_OFF;
 

@@ -1,9 +1,12 @@
 #include "fault_detector.h"
 
+#include "tests/branch_trace.h"
+
 bool isAbnormalReading(int value, SystemContext *ctx, unsigned long now) {
   bool isPinned;
 
   if (ctx == 0) {
+    TRACE_BRANCH("fault:null");
     return false;
   }
 
@@ -12,18 +15,22 @@ bool isAbnormalReading(int value, SystemContext *ctx, unsigned long now) {
 
   if (isPinned) {
     if (ctx->abnormalStartMillis == 0) {
+      TRACE_BRANCH("fault:pinned-start");
       ctx->abnormalStartMillis = now;
     }
 
     if (now - ctx->abnormalStartMillis >= FAULT_MS) {
+      TRACE_BRANCH("fault:pinned-confirmed");
       ctx->abnormalCount++;
       return true;
     }
 
+    TRACE_BRANCH("fault:pinned-not-yet");
     return false;
   }
 
   /* 正常値へ戻ったら再計測に備えてリセット */
+  TRACE_BRANCH("fault:not-pinned");
   ctx->abnormalStartMillis = 0;
   return false;
 }
